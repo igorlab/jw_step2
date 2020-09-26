@@ -3,47 +3,88 @@ package service;
 import model.User_info;
 import sql.DBConnect;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Optional;
 
 public class DBservice {
 
+    public Iterable<User_info> get_liked(Long uid_who_see) {
+        return DBConnect.get().flatMap(conn -> {
+            try {
+                PreparedStatement stmt = conn.prepareStatement(
+                        "select u.uid, u.name, u.photo from users u, actions a where u.uid = a.uid_whom and a.what = true and a.uid_who = ?"
+                );
+                stmt.setLong (1, uid_who_see);
 
+                ResultSet rset = stmt.executeQuery();
+                ArrayList<User_info> opll = new ArrayList<>();
+                while (rset.next()) {
+                    Long uid = rset.getLong("uid");
+                    String name = rset.getString("name");
+                    String photo = rset.getString("photo");
+                    User_info opl = new User_info(uid, name, photo);
+                    opll.add(opl);
+                }
+                return Optional.of(opll);
+            } catch (SQLException throwables) {
+
+                return Optional.empty();
+            }
+        }).orElse(new ArrayList<>()); // Optional.getOrElse()
+    }
 
     public void otlikatUser(User_info ui) {
         DBConnect.get().map(conn -> {
             try {
                 PreparedStatement stmt = conn.prepareStatement(
-                        //"INSERT INTO history (a, b, op, r) VALUES (?, ?, ?, ?)");
                  "insert into actions (uid_who, uid_whom, what) values ( ?, ?, ?)"
                 );
-                stmt.setLong(1, ui._uid);
-                stmt.setLong(2, ui._uid_whom);
+                stmt.setLong(1, ui._uid_whom);
+                stmt.setLong(2, ui._uid);
                 stmt.setBoolean(3, ui._isLike);
-
                 stmt.execute();
-
             } catch (SQLException ex) {
                 throw new RuntimeException(ex) ;
             }
             return conn;
         }).map(conn -> "Has written successfully")
                 .orElse("Connection Error");
-//        System.out.println(result);
     }
 
-    public User_info get() {
+    public Optional<Long> login(String name, String passw) {
+        return DBConnect.get().map(conn -> {
+            try {
+                PreparedStatement stmt = conn.prepareStatement(
+                 "select COALESCE((select u.uid from users u where u.name = ? and u.password = ?), -1) as uid;"
+                );
+                stmt.setString(1, name);
+                stmt.setString(2, passw);
+
+                ResultSet rset = stmt.executeQuery();
+                Long uid = -1L;
+                while (rset.next()) {
+                    uid = rset.getLong("uid");
+                    System.out.println("uid " + uid);
+                }
+                return uid;
+            } catch (SQLException ex) {
+                throw new RuntimeException(ex) ;
+            }
+        })/*.map(conn -> -1L).orElse(-1L)*/;
+
+    }
+
+    public Optional<User_info> get(Long uid_who_see) {
         return DBConnect.get().flatMap(conn -> {
             try {
                 PreparedStatement stmt = conn.prepareStatement(
-                 "select uid, name, photo from users u where u.uid not in (select uid_whom from actions where uid_who = 1) limit 1"
+                        "select uid, name, photo from users u where u.uid <> ? and u.uid not in (select uid_whom from actions where uid_who = ?)"
                 );
+                stmt.setLong (1, uid_who_see);
+                stmt.setLong (2, uid_who_see);
 
                 ResultSet rset = stmt.executeQuery();
 
@@ -53,13 +94,13 @@ public class DBservice {
                     String name = rset.getString("name");
                     String photo_url = rset.getString("photo");
                     opl = new User_info(uid, name, photo_url);
+                    opl._uid_whom = rset.getLong("uid");
                 }
-                return Optional.of(opl);
+                return Optional.ofNullable(opl);
                 
             } catch (SQLException throwables) {
                 return Optional.empty();
             }
-        }).orElse(new User_info(1L,"aaa", "bbb")); // Optional.getOrElse()
+        }); // Optional.getOrElse()
     }
-
 }
