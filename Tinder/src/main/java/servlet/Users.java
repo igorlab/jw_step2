@@ -2,6 +2,7 @@ package servlet;
 
 import model.User_info;
 import service.DBservice;
+import util.Cookies_helper;
 import util.TemplateEngine;
 
 import javax.servlet.ServletException;
@@ -27,7 +28,6 @@ public class Users extends HttpServlet {
     @Override // kogda otlaikali
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException, ServletException {
         try {
-
 
             resp.getWriter();
             long uid = parseLong(req.getParameter("id"));// Params.getIntParam("a", req);
@@ -57,31 +57,40 @@ public class Users extends HttpServlet {
             long id_who_see = 1L;
 
             Cookie[] cookies = req.getCookies();
-            Cookie cccc = null;
-            if (cookies != null) {
-                for (Cookie c : cookies) {
-                    if ("uid".equals(c.getName())) {
-                        id_who_see = Long.parseLong(c.getValue());
-                    }
+            id_who_see = Cookies_helper.GetCookiesByNameLong(cookies, "uid").get();
+
+            long finalId_who_see = id_who_see;
+
+            _connection.getNewUser(id_who_see).map(a -> {
+                HashMap<String, Object> data = new HashMap<>();
+                data.put("name", a._name);
+                data.put("photo", a._url_photo);
+                data.put("uid", a._uid);
+                data.put("uidwhom", finalId_who_see);
+                engine.render(Paths.get("like-page.ftl").toString(), data, resp);
+                return null;
+            }).or(() -> {
+                System.out.println("all liked/disliked");
+                try {
+                    resp.sendRedirect("/liked");
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            }
-            final long aaaa = id_who_see;
+                return null;
+            });
 
-            Optional<User_info> user_photos = _connection.get(id_who_see);
-
-            if (user_photos.isPresent()) {
-                user_photos.ifPresent(a -> {
-                    HashMap<String, Object> data = new HashMap<>();
-                    data.put("name", a._name);
-                    data.put("photo", a._url_photo);
-                    data.put("uid", a._uid);
-                    data.put("uidwhom", aaaa);
-                    engine.render(Paths.get("like-page.ftl").toString(), data, resp);
-                });
-            } else {
-                resp.sendRedirect("/liked");
-            }
-            ;
+//            if (user_photos.isPresent()) {
+//                user_photos.ifPresent(a -> {
+//                    HashMap<String, Object> data = new HashMap<>();
+//                    data.put("name", a._name);
+//                    data.put("photo", a._url_photo);
+//                    data.put("uid", a._uid);
+//                    data.put("uidwhom", aaaa);
+//                    engine.render(Paths.get("like-page.ftl").toString(), data, resp);
+//                });
+//            } else {
+//                resp.sendRedirect("/liked");
+//            };
 
         } catch (Exception e) {
             throw new RuntimeException(e);

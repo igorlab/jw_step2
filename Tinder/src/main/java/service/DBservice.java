@@ -77,7 +77,7 @@ public class DBservice {
 
     }
 
-    public Optional<User_info> get(Long uid_who_see) {
+    public Optional<User_info> getNewUser(Long uid_who_see) {
         return DBConnect.get().flatMap(conn -> {
             try {
                 PreparedStatement stmt = conn.prepareStatement(

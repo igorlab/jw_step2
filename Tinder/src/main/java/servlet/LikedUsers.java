@@ -39,6 +39,7 @@ public class LikedUsers extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         TemplateEngine engine = TemplateEngine.folder("assets");
+
         Cookie[] cookies = req.getCookies();
         Long id_who_see = null;
         if (cookies != null) {
